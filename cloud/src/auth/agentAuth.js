@@ -8,7 +8,7 @@
 
 import { jwtVerify, SignJWT } from 'jose';
 import { config } from '../config.js';
-import { upsertUser, getUserById } from '../db/users.js';
+import { upsertUser, getUserById, getOrCreateLocalSharedUser } from '../db/users.js';
 import { upsertDevAgent } from '../db/agents.js';
 import { getLocalAuth } from './localAuth.js';
 import { hostname as osHostname } from 'os';
@@ -79,16 +79,32 @@ export async function verifyAgentToken(token, instanceKey) {
       };
     }
 
-    // Local mode: use the cloud-authenticated identity
+    // Local mode: prefer the cloud-authenticated identity when this instance
+    // has gone through that flow (see localAuth.js).
     const localAuth = getLocalAuth();
-    if (!localAuth) {
-      throw new Error('Local instance not authenticated with cloud. Open the app in your browser to sign in first.');
+    if (localAuth) {
+      const user = getUserById(localAuth.cloudUserId) || upsertUser({
+        githubLogin: localAuth.githubLogin,
+        email: localAuth.email,
+        displayName: localAuth.displayName || 'Local User',
+        avatarUrl: localAuth.avatarUrl,
+      });
+      return {
+        agentId: resolveDevAgent(instanceKey, user.id),
+        userId: user.id,
+      };
     }
-    const user = getUserById(localAuth.cloudUserId) || upsertUser({
-      githubLogin: localAuth.githubLogin,
-      email: localAuth.email,
-      displayName: localAuth.displayName || 'Local User',
-      avatarUrl: localAuth.avatarUrl,
+
+    // Most 'open' deployments never complete that flow — the browser instead
+    // resolves through autoLocalSession's shared-identity fallback (see
+    // middleware.js). Mirror that here so the agent lands on the same user
+    // the browser already created, instead of refusing to connect.
+    const { ensureLocalSession, getEmailAuth } = await import('./emailAuth.js');
+    const { instanceId } = ensureLocalSession();
+    const emailAuth = getEmailAuth();
+    const user = getOrCreateLocalSharedUser(instanceId, {
+      email: emailAuth?.email || null,
+      displayName: emailAuth?.email ? emailAuth.email.split('@')[0] : 'Local User',
     });
     return {
       agentId: resolveDevAgent(instanceKey, user.id),
