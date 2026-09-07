@@ -11,6 +11,7 @@
 import { isExternalInputFocused } from './utils.js';
 import { setMinimapEnabled, getMinimapEnabled, hideMinimap, startMinimapLoop } from './minimap.js';
 import { showSettingsModal, savePrefsToCloud } from './settings.js';
+import { resolveNumberHotkeyTarget } from './number-hotkeys.js';
 
 let _ctx = null;
 
@@ -290,31 +291,19 @@ export function setupKeyboardShortcuts() {
     // Tab+1..9: jump to pane or project with that shortcut number (shared pool)
     if (tabHeld && e.key >= '1' && e.key <= '9') {
       const num = parseInt(e.key, 10);
-      // Check panes first (includes checkpoint panes). Panes drop out of the
-      // pool when the setting is off; projects keep their numbers either way,
-      // since that shortcut is not what the setting turns off.
-      const paneHotkeys = _ctx.getPaneNumberHotkeysEnabled ? _ctx.getPaneNumberHotkeysEnabled() : true;
-      const targetPane = paneHotkeys ? state.panes.find(p => p.shortcutNumber === num) : null;
-      if (targetPane) {
-        tabChordUsed = true;
-        e.preventDefault();
-        e.stopPropagation();
-        if (targetPane.type === 'checkpoint') {
-          _ctx.navigateToCheckpointPane(targetPane);
-        } else {
-          _ctx.jumpToPane(targetPane);
-        }
-        return;
-      }
-      // Check projects (zoom-to-fit)
-      const targetProject = state.projects.find(p => p.shortcutNumber === num);
-      if (targetProject) {
-        tabChordUsed = true;
-        e.preventDefault();
-        e.stopPropagation();
-        _ctx.navigateToProject(targetProject);
-        return;
-      }
+      const hit = resolveNumberHotkeyTarget({
+        panes: state.panes,
+        projects: state.projects,
+        num,
+        paneHotkeysEnabled: _ctx.getPaneNumberHotkeysEnabled ? _ctx.getPaneNumberHotkeysEnabled() : true,
+      });
+      if (!hit) return;
+      tabChordUsed = true;
+      e.preventDefault();
+      e.stopPropagation();
+      if (hit.kind === 'checkpoint') _ctx.navigateToCheckpointPane(hit.target);
+      else if (hit.kind === 'pane') _ctx.jumpToPane(hit.target);
+      else _ctx.navigateToProject(hit.target);
       return;
     }
   }, true); // capture phase
