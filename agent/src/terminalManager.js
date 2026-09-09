@@ -4,8 +4,13 @@ import WebSocket from 'ws';
 import { tmuxService } from '../services/tmux.js';
 import { config } from './config.js';
 
-// tmux command prefix for this instance (see agent/src/instance.js).
+// tmux command prefix for this instance (see agent/src/instance.js). A
+// non-default instance runs its own tmux server on a dedicated socket
+// ('tmux -L <instanceKey>'), so anything that attaches to a session — not
+// just tmuxService's own CLI calls — has to name that socket too, or it
+// attaches against the default server where the session doesn't exist.
 const TMUX = config.tmuxCommand;
+const TMUX_ARGS = TMUX.split(' ').slice(1);
 
 // Track ttyd processes by tmux session
 const ttydProcesses = new Map();
@@ -154,7 +159,7 @@ async function startTtyd(tmuxSession) {
     const ttyd = spawn('ttyd', [
       '-p', String(port),
       '-W',
-      'tmux', 'attach-session', '-t', tmuxSession,
+      'tmux', ...TMUX_ARGS, 'attach-session', '-t', tmuxSession,
     ], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
