@@ -432,16 +432,23 @@ export function renderSvgGitGraph(outputEl, commits, currentBranch) {
 
     let refsHtml = '';
     if (commit.refs) {
+      // Match ref badge colors to graph line color for this commit
+      const hexToRgb = (hex) => {
+        const h = hex.replace('#', '');
+        return `${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)}`;
+      };
+      const rgb = hexToRgb(colour);
+      const refStyle = `background:rgba(${rgb},0.15);color:${colour};border:1px solid rgba(${rgb},0.3)`;
       const refParts = commit.refs.split(',').map(r => r.trim()).filter(Boolean);
       for (const ref of refParts) {
         if (ref.startsWith('HEAD -> ')) {
-          refsHtml += `<span class="gg-ref gg-ref-head">${escapeHtml(ref.replace('HEAD -> ', ''))}</span>`;
+          refsHtml += `<span class="gg-ref gg-ref-head" style="${refStyle}">${escapeHtml(ref.replace('HEAD -> ', ''))}</span>`;
         } else if (ref.startsWith('tag: ')) {
           refsHtml += `<span class="gg-ref gg-ref-tag">${escapeHtml(ref.replace('tag: ', ''))}</span>`;
         } else if (ref.startsWith('origin/')) {
-          refsHtml += `<span class="gg-ref gg-ref-remote">${escapeHtml(ref)}</span>`;
+          refsHtml += `<span class="gg-ref gg-ref-remote" style="${refStyle}">${escapeHtml(ref)}</span>`;
         } else {
-          refsHtml += `<span class="gg-ref gg-ref-branch">${escapeHtml(ref)}</span>`;
+          refsHtml += `<span class="gg-ref gg-ref-branch" style="${refStyle}">${escapeHtml(ref)}</span>`;
         }
       }
     }
