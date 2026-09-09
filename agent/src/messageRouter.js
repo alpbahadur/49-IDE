@@ -157,9 +157,17 @@ export function createMessageRouter(sendToRelay, options = {}) {
       if (!alreadyWired) {
         wiredTerminals.add(terminalId);
 
-        // Wire error handler once to prevent crash on ttyd failures
+        // Wire error handler once to prevent crash on ttyd failures.
+        // Also unwires on error, same as the 'closed' handler below: an
+        // errored attachment's emitter is done, and attachTerminal() hands
+        // back a brand-new EventEmitter on the next attach attempt. Leaving
+        // this terminalId marked "wired" would skip listening on that new
+        // emitter entirely, so its next error would have zero listeners —
+        // and an EventEmitter throws on an unhandled 'error' event, killing
+        // the whole agent process.
         emitter.on('error', (message) => {
           console.error(`[Terminal] Error for ${terminalId.slice(0,8)}:`, message);
+          wiredTerminals.delete(terminalId);
           sendToRelay(MSG.TERMINAL_ERROR, { terminalId, message });
         });
 
