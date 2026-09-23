@@ -21,19 +21,22 @@ const CONTENT_TYPES = new Set([
   'poll', 'quiz', 'interactive_calculator', 'form',
 ]);
 
-const seoHelmet = helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'"],
-      imgSrc: ["'self'", 'https:', 'data:'],
-      baseUri: ["'self'"],
-      frameAncestors: ["'none'"],
-      objectSrc: ["'none'"],
+function createSeoHelmet(formOrigins) {
+  return helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'", 'https:', 'data:'],
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"],
+        formAction: ["'self'", ...formOrigins],
+        objectSrc: ["'none'"],
+      },
     },
-  },
-});
+  });
+}
 
 class PythonNumber {
   constructor(raw) {
@@ -505,7 +508,7 @@ function validatePayload(parsed, idempotencyKey, options) {
   let rendered;
   try {
     const originalBlocks = parsed.article.blocks;
-    blocks = validateBlocks(originalBlocks, allowedFormOrigins(options.env));
+    blocks = validateBlocks(originalBlocks, options.formOrigins);
     rendered = renderHtml(blocks);
   } catch {
     throw receiverError(422, 'invalid_blocks');
@@ -534,6 +537,7 @@ function createEnabledRouter(options) {
   const router = express.Router();
   const gate = hostGate(options.origin);
   const auth = bearerGate(options.token);
+  const securityHeaders = createSeoHelmet(options.formOrigins);
   const rawJson = express.raw({ type: 'application/json', limit: MAX_BODY_BYTES });
   const withDb = (handler) => (req, res, next) => {
     let db;
@@ -543,7 +547,7 @@ function createEnabledRouter(options) {
     } catch (error) { if (db) db.close(); return next(error); }
   };
 
-  router.get('/articles', seoHelmet, gate, withDb((db, req, res) => {
+  router.get('/articles', securityHeaders, gate, withDb((db, req, res) => {
     try {
       const rows = db.prepare('SELECT slug,title,description,updated_at FROM articles ORDER BY updated_at DESC,slug ASC').all();
       const items = rows.map((row) => `<li><article><h2><a href="/articles/${esc(row.slug)}">${esc(row.title)}</a></h2><p>${esc(row.description)}</p><time datetime="${esc(row.updated_at)}">Updated ${esc(row.updated_at.slice(0, 10))}</time></article></li>`).join('');
@@ -552,7 +556,7 @@ function createEnabledRouter(options) {
     } finally { db.close(); }
   }));
 
-  router.get('/articles/:slug', seoHelmet, gate, withDb((db, req, res) => {
+  router.get('/articles/:slug', securityHeaders, gate, withDb((db, req, res) => {
     try {
       const row = db.prepare('SELECT * FROM articles WHERE slug=?').get(req.params.slug);
       if (!row) return errorResponse(res, 404, 'not_found');
@@ -562,7 +566,7 @@ function createEnabledRouter(options) {
     } finally { db.close(); }
   }));
 
-  router.get('/sitemap-seo.xml', seoHelmet, gate, withDb((db, req, res) => {
+  router.get('/sitemap-seo.xml', securityHeaders, gate, withDb((db, req, res) => {
     try {
       const rows = db.prepare('SELECT canonical_url,updated_at FROM articles ORDER BY slug ASC').all();
       const urls = rows.map((row) => `<url><loc>${xml(row.canonical_url)}</loc><lastmod>${xml(row.updated_at.slice(0, 10))}</lastmod></url>`).join('');
@@ -570,10 +574,10 @@ function createEnabledRouter(options) {
     } finally { db.close(); }
   }));
 
-  router.get('/seo-interactions.js', seoHelmet, gate, (req, res) => res.sendFile(resolve(options.moduleDir, 'seo-interactions.js'), { headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } }));
-  router.get('/seo-articles.css', seoHelmet, gate, (req, res) => res.sendFile(resolve(options.moduleDir, 'seo-articles.css'), { headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } }));
+  router.get('/seo-interactions.js', securityHeaders, gate, (req, res) => res.sendFile(resolve(options.moduleDir, 'seo-interactions.js'), { headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } }));
+  router.get('/seo-articles.css', securityHeaders, gate, (req, res) => res.sendFile(resolve(options.moduleDir, 'seo-articles.css'), { headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } }));
 
-  router.post('/api/seo/v1/articles', seoHelmet, gate, auth, rawJson, (req, res, next) => {
+  router.post('/api/seo/v1/articles', securityHeaders, gate, auth, rawJson, (req, res, next) => {
     let parsed;
     try {
       if (!Buffer.isBuffer(req.body)) throw receiverError(400, 'invalid_json');
@@ -637,7 +641,7 @@ function createEnabledRouter(options) {
     }
   });
 
-  router.get('/api/seo/v1/events/:event_id', seoHelmet, gate, auth, withDb((db, req, res) => {
+  router.get('/api/seo/v1/events/:event_id', securityHeaders, gate, auth, withDb((db, req, res) => {
     try {
       if (!UUID_RE.test(req.params.event_id)) return errorResponse(res, 404, 'not_found');
       const row = db.prepare('SELECT response_json FROM events WHERE event_id=?').get(req.params.event_id);
@@ -665,5 +669,5 @@ export function createSeoPublishingRouter({ env = process.env, userDatabasePath 
     router.use('/api/seo/v1', (req, res) => errorResponse(res, 404, 'not_found'));
     return router;
   }
-  return createEnabledRouter({ ...options, env, moduleDir });
+  return createEnabledRouter({ ...options, env, moduleDir, formOrigins: allowedFormOrigins(env) });
 }

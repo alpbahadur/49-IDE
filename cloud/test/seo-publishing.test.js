@@ -247,6 +247,36 @@ test('hostile markup, script URLs, and unknown attributes cannot enter publicati
   });
 });
 
+test('form CSP permits only configured safe HTTPS action origins', async (t) => {
+  const dir = temporaryDir(t);
+  const databasePath = join(dir, 'seo.sqlite3');
+  await withServer({ env: enabledEnv(databasePath), userDatabasePath: join(dir, 'users.sqlite3') }, async (base) => {
+    const allowed = await fetch(`${base}/api/seo/v1/articles`, requestOptions(fixtureText, { Authorization: `Bearer ${TOKEN}` }));
+    assert.equal(allowed.status, 201);
+    assert.match(allowed.headers.get('content-security-policy'), /form-action 'self' https:\/\/forms\.example\.test/);
+
+    const unlistedForm = fixtureText.replace('https://forms.example.test/submit', 'https://attacker.example/submit');
+    const rejected = await fetch(`${base}/api/seo/v1/articles`, requestOptions(unlistedForm, { Authorization: `Bearer ${TOKEN}` }));
+    assert.equal(rejected.status, 422);
+    assert.deepEqual(await rejected.json(), { detail: { error: 'invalid_blocks' } });
+  });
+
+  const noFormsPath = join(dir, 'no-forms.sqlite3');
+  const noFormsEnv = enabledEnv(noFormsPath);
+  delete noFormsEnv.SEO_FORM_ACTION_ORIGINS;
+  await withServer({ env: noFormsEnv, userDatabasePath: join(dir, 'users-no-forms.sqlite3') }, async (base) => {
+    const rejected = await fetch(`${base}/api/seo/v1/articles`, requestOptions(fixtureText, { Authorization: `Bearer ${TOKEN}` }));
+    assert.equal(rejected.status, 422);
+    assert.deepEqual(await rejected.json(), { detail: { error: 'invalid_blocks' } });
+
+    const listing = await fetch(`${base}/articles`);
+    assert.equal(listing.status, 200);
+    const policy = listing.headers.get('content-security-policy');
+    assert.match(policy, /form-action 'self'/);
+    assert.doesNotMatch(policy, /forms\.example\.test|attacker\.example/);
+  });
+});
+
 test('article pages escape metadata, include canonical markers, listing, sitemap, and fixed local interactions', async (t) => {
   const dir = temporaryDir(t);
   const databasePath = join(dir, 'seo.sqlite3');
