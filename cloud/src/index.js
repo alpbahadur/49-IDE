@@ -26,6 +26,7 @@ import { ensureLocalAuthTable, isLocalMode } from './auth/localAuth.js';
 import { ensureEmailAuthTable, setupEmailAuthRoutes, getEmailAuth, issueEmailInstanceToken } from './auth/emailAuth.js';
 import { ensureTelemetryTables, setupTelemetryIngestRoutes } from './telemetry/ingest.js';
 import { initLocalTelemetryCollector } from './telemetry/localCollector.js';
+import { createSeoPublishingRouter } from './seo/publishing.js';
 import { config } from './config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -33,6 +34,10 @@ const publicDir = resolve(__dirname, '..', 'public');
 const landingDir = config.landingDir ? resolve(config.landingDir) : null;
 
 const app = express();
+
+// Optional public article publishing is isolated from the user database and
+// mounted before the app/landing hostname split and the general 16kb parser.
+app.use(createSeoPublishingRouter({ userDatabasePath: config.dbPath }));
 
 // ---------------------------------------------------------------------------
 // Landing page routing (hostname-based)

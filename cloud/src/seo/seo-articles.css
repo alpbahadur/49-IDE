@@ -1,0 +1,63 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #ecece5;
+  background: #111311;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #111311; line-height: 1.7; }
+a { color: #c3f56b; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+a:hover { color: #e0ffad; }
+.site-header, footer { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; width: min(100% - 2rem, 1120px); margin: 0 auto; padding: 1.2rem 0; }
+.site-header { border-bottom: 1px solid #30342f; }
+.brand { color: #f2f4ed; font-size: 1.15rem; font-weight: 800; letter-spacing: -0.04em; text-decoration: none; }
+nav { display: flex; flex-wrap: wrap; gap: 1.2rem; }
+nav a, footer a { font-size: 0.92rem; }
+main { width: min(100% - 2rem, 780px); margin: 0 auto; padding: clamp(2rem, 7vw, 5.5rem) 0; }
+h1, h2, h3 { color: #f7f8f3; line-height: 1.2; letter-spacing: -0.035em; }
+h1 { margin: 0.25rem 0 1rem; font-size: clamp(2.4rem, 8vw, 4.2rem); }
+h2 { margin-top: 2rem; font-size: clamp(1.45rem, 5vw, 2.1rem); }
+h3 { margin-top: 1.5rem; font-size: 1.25rem; }
+p, li, dd, td, th, label { color: #d0d4cb; }
+.intro { margin-bottom: 3rem; }
+.eyebrow { color: #c3f56b; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.home-link, .cta { display: inline-flex; margin-top: 0.8rem; padding: 0.65rem 1rem; border: 1px solid #87b34a; border-radius: 0.45rem; color: #d9ff9e; text-decoration: none; }
+.article-list { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; }
+.article-list li { padding: 1.25rem 1.35rem; border: 1px solid #30342f; border-radius: 0.7rem; background: #171a17; }
+.article-list h2 { margin: 0 0 0.5rem; font-size: 1.35rem; }
+.article-list h2 a { text-decoration: none; }
+.article-list p { margin: 0.4rem 0; }
+.article-list time { color: #969d91; font-size: 0.82rem; }
+.empty { padding: 1rem 0; }
+main[data-article-id] { overflow-wrap: anywhere; }
+main[data-article-id] > section { margin: 1.8rem 0; }
+blockquote { margin: 1.5rem 0; padding: 0.5rem 1.25rem; border-left: 3px solid #9ccc59; background: #1b2018; }
+blockquote p { color: #eff2e9; font-size: 1.18rem; }
+table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+th, td { padding: 0.65rem 0.8rem; border: 1px solid #3a4037; text-align: left; }
+th { color: #f0f3e8; background: #20251d; }
+figure { margin: 1.5rem 0; }
+figure img { max-width: 100%; height: auto; border-radius: 0.5rem; }
+pre { overflow-x: auto; padding: 1rem; border: 1px solid #333931; border-radius: 0.5rem; background: #0a0c0a; color: #e6f1d8; }
+.pros-cons { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.bar-chart li { display: grid; grid-template-columns: minmax(5rem, 1fr) minmax(5rem, 3fr) minmax(3rem, auto); align-items: center; gap: 0.7rem; }
+meter { width: 100%; accent-color: #b9ed68; }
+details, [data-poll], [data-quiz], [data-calculator], form { margin: 1rem 0; padding: 1rem; border: 1px solid #353b32; border-radius: 0.6rem; background: #171a17; }
+summary, button { cursor: pointer; }
+button, input { font: inherit; }
+button { padding: 0.5rem 0.8rem; border: 1px solid #667854; border-radius: 0.4rem; color: #edf3e3; background: #242b20; }
+button:disabled { cursor: default; opacity: 0.7; }
+label { display: inline-flex; flex-direction: column; gap: 0.35rem; margin: 0.5rem 0.8rem 0.5rem 0; }
+input { width: min(100%, 18rem); padding: 0.5rem; border: 1px solid #596150; border-radius: 0.35rem; color: #fff; background: #101310; }
+[data-local-result] { min-height: 1.6em; color: #d5fa9e; }
+footer { border-top: 1px solid #30342f; color: #969d91; }
+
+@media (max-width: 520px) {
+  .site-header { align-items: flex-start; flex-direction: column; gap: 0.4rem; }
+  nav { gap: 1rem; }
+  .bar-chart li { grid-template-columns: 1fr auto; }
+  .bar-chart meter { grid-column: 1 / -1; grid-row: 2; }
+}

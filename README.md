@@ -152,6 +152,14 @@ Updates are delivered in-app: click the tray icon and choose **Check for Updates
 
 </details>
 
+## Optional SEO article publishing
+
+The hosted cloud server can receive SEO article publications and serve their
+public pages on `49agents.com`. The connector is disabled by default and uses
+an isolated SQLite database on persistent storage. See
+[`docs/SEO-PUBLISHING.md`](./docs/SEO-PUBLISHING.md) for enablement, protocol
+routes, and rollback instructions.
+
 ---
 
 ## License
