@@ -150,4 +150,15 @@ test('real ttyd with the agent arguments', { skip: !hasTtyd && 'ttyd not install
     assert.equal(result.typed, false);
     assert.equal(result.reason, 'ECONNREFUSED');
   });
+
+  await t.test('a local client without the credential is rejected', async () => {
+    const result = await tryToType(ttydUrl(PORT));
+    assert.equal(result.typed, false);
+  });
+
+  await t.test('a wrong credential is rejected', async () => {
+    const wrong = { user: credential.user, pass: 'wrong' };
+    const result = await tryToType(ttydUrl(PORT), ttydClientOptions(wrong), wrong);
+    assert.equal(result.typed, false);
+  });
 });
