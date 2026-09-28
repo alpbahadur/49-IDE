@@ -6,6 +6,7 @@ import WebSocket from 'ws';
 import {
   TTYD_BIND_HOST,
   buildTtydArgs,
+  generateTtydCredential,
   ttydUrl,
 } from '../src/ttydLaunch.js';
 
@@ -97,6 +98,16 @@ test('the wrapped command comes last, so ttyd does not parse its flags', () => {
   const command = ['tmux', 'attach-session', '-t', 'sess'];
   const args = buildTtydArgs({ port: 7700, command });
   assert.deepEqual(args.slice(-command.length), command);
+});
+
+test('each credential is fresh and unguessable', () => {
+  const a = generateTtydCredential();
+  const b = generateTtydCredential();
+  assert.notEqual(a.pass, b.pass);
+  assert.notEqual(a.user, b.user);
+  assert.ok(a.pass.length >= 32);
+  // ttyd splits "user:pass" on the first colon.
+  assert.ok(!a.user.includes(':'));
 });
 
 test('the agent connects over loopback', () => {
