@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'child_process';
+import { networkInterfaces } from 'os';
 import WebSocket from 'ws';
 import {
   TTYD_BIND_HOST,
@@ -73,6 +74,15 @@ function tryToType(url, wsOptions = {}) {
   });
 }
 
+function externalIPv4() {
+  for (const addrs of Object.values(networkInterfaces())) {
+    for (const addr of addrs || []) {
+      if (addr.family === 'IPv4' && !addr.internal) return addr.address;
+    }
+  }
+  return null;
+}
+
 // --- Arguments ---------------------------------------------------------------
 
 test('ttyd binds to loopback only', () => {
@@ -102,5 +112,12 @@ test('real ttyd with the agent arguments', { skip: !hasTtyd && 'ttyd not install
   await t.test('the agent can type into the terminal', async () => {
     const result = await tryToType(ttydUrl(PORT));
     assert.equal(result.typed, true, `agent client failed: ${result.reason}`);
+  });
+
+  const lanIp = externalIPv4();
+  await t.test('another machine on the network cannot connect', { skip: !lanIp && 'no non-loopback IPv4 address' }, async () => {
+    const result = await tryToType(`ws://${lanIp}:${PORT}/ws`);
+    assert.equal(result.typed, false);
+    assert.equal(result.reason, 'ECONNREFUSED');
   });
 });
