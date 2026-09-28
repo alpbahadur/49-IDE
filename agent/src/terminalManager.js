@@ -3,7 +3,7 @@ import { spawn, execSync } from 'child_process';
 import WebSocket from 'ws';
 import { tmuxService } from '../services/tmux.js';
 import { config } from './config.js';
-import { buildTtydArgs } from './ttydLaunch.js';
+import { buildTtydArgs, ttydUrl } from './ttydLaunch.js';
 
 // tmux command prefix for this instance (see agent/src/instance.js).
 const TMUX = config.tmuxCommand;
@@ -218,8 +218,7 @@ function stopAllTtyd() {
  */
 function connectToTtyd(port, cols, rows, attempt = 1) {
   return new Promise((resolve, reject) => {
-    const ttydUrl = `ws://localhost:${port}/ws`;
-    const ttydWs = new WebSocket(ttydUrl, ['tty']);
+    const ttydWs = new WebSocket(ttydUrl(port), ['tty']);
     ttydWs.binaryType = 'arraybuffer';
 
     const timeout = setTimeout(() => {
