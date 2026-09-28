@@ -7,6 +7,8 @@ import {
   TTYD_BIND_HOST,
   buildTtydArgs,
   generateTtydCredential,
+  ttydClientOptions,
+  ttydInitMessage,
   ttydUrl,
 } from '../src/ttydLaunch.js';
 
@@ -110,8 +112,12 @@ test('each credential is fresh and unguessable', () => {
   assert.ok(!a.user.includes(':'));
 });
 
-test('the agent connects over loopback', () => {
+test('the agent connects over loopback and presents the credential', () => {
+  const credential = { user: 'u', pass: 'p' };
+  const token = Buffer.from('u:p').toString('base64');
   assert.equal(ttydUrl(7700), 'ws://127.0.0.1:7700/ws');
+  assert.deepEqual(ttydClientOptions(credential), { headers: { Authorization: `Basic ${token}` } });
+  assert.deepEqual(JSON.parse(ttydInitMessage(credential, 120, 40)), { AuthToken: token, columns: 120, rows: 40 });
 });
 
 // --- Real ttyd ---------------------------------------------------------------

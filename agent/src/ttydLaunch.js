@@ -26,3 +26,17 @@ export function buildTtydArgs({ port, command }) {
 export function ttydUrl(port) {
   return `ws://${TTYD_BIND_HOST}:${port}/ws`;
 }
+
+function authToken(credential) {
+  return Buffer.from(`${credential.user}:${credential.pass}`).toString('base64');
+}
+
+export function ttydClientOptions(credential) {
+  return { headers: { Authorization: `Basic ${authToken(credential)}` } };
+}
+
+// ttyd checks the credential twice: the Authorization header on the upgrade,
+// and AuthToken in the first message. Without the latter it closes with 1008.
+export function ttydInitMessage(credential, cols, rows) {
+  return JSON.stringify({ AuthToken: authToken(credential), columns: cols || 80, rows: rows || 24 });
+}
