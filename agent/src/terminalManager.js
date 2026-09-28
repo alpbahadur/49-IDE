@@ -3,6 +3,7 @@ import { spawn, execSync } from 'child_process';
 import WebSocket from 'ws';
 import { tmuxService } from '../services/tmux.js';
 import { config } from './config.js';
+import { buildTtydArgs } from './ttydLaunch.js';
 
 // tmux command prefix for this instance (see agent/src/instance.js).
 const TMUX = config.tmuxCommand;
@@ -151,11 +152,10 @@ async function startTtyd(tmuxSession) {
   const port = getAvailablePort();
 
   return new Promise((resolve, reject) => {
-    const ttyd = spawn('ttyd', [
-      '-p', String(port),
-      '-W',
-      'tmux', 'attach-session', '-t', tmuxSession,
-    ], {
+    const ttyd = spawn('ttyd', buildTtydArgs({
+      port,
+      command: ['tmux', 'attach-session', '-t', tmuxSession],
+    }), {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
