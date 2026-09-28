@@ -3,11 +3,12 @@ import { spawn, execSync } from 'child_process';
 import WebSocket from 'ws';
 import { tmuxService } from '../services/tmux.js';
 import { config } from './config.js';
+import { buildTtydArgs, generateTtydCredential, ttydClientOptions, ttydInitMessage, ttydUrl } from './ttydLaunch.js';
 
 // tmux command prefix for this instance (see agent/src/instance.js).
 const TMUX = config.tmuxCommand;
 
-// Track ttyd processes by tmux session
+// Track ttyd processes by tmux session: tmuxSession -> { process, port, credential }
 const ttydProcesses = new Map();
 const usedPorts = new Set();
 
@@ -145,25 +146,27 @@ function releasePort(port) {
 async function startTtyd(tmuxSession) {
   const existing = ttydProcesses.get(tmuxSession);
   if (existing) {
-    return existing.port;
+    return existing;
   }
 
   const port = getAvailablePort();
+  const credential = generateTtydCredential();
 
   return new Promise((resolve, reject) => {
-    const ttyd = spawn('ttyd', [
-      '-p', String(port),
-      '-W',
-      'tmux', 'attach-session', '-t', tmuxSession,
-    ], {
+    const ttyd = spawn('ttyd', buildTtydArgs({
+      port,
+      credential,
+      command: ['tmux', 'attach-session', '-t', tmuxSession],
+    }), {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     ttyd.stderr?.on('data', (data) => {
       const msg = data.toString();
       if (msg.includes('Listening on')) {
-        ttydProcesses.set(tmuxSession, { process: ttyd, port });
-        resolve(port);
+        const info = { process: ttyd, port, credential };
+        ttydProcesses.set(tmuxSession, info);
+        resolve(info);
       }
     });
 
@@ -214,18 +217,18 @@ function stopAllTtyd() {
 }
 
 /**
- * Connect to a ttyd WebSocket with retry logic
+ * Connect to a ttyd WebSocket with retry logic.
+ * `endpoint` is the { port, credential } record returned by startTtyd.
  */
-function connectToTtyd(port, cols, rows, attempt = 1) {
+function connectToTtyd(endpoint, cols, rows, attempt = 1) {
   return new Promise((resolve, reject) => {
-    const ttydUrl = `ws://localhost:${port}/ws`;
-    const ttydWs = new WebSocket(ttydUrl, ['tty']);
+    const ttydWs = new WebSocket(ttydUrl(endpoint.port), ['tty'], ttydClientOptions(endpoint.credential));
     ttydWs.binaryType = 'arraybuffer';
 
     const timeout = setTimeout(() => {
       ttydWs.close();
       if (attempt < 5) {
-        connectToTtyd(port, cols, rows, attempt + 1).then(resolve).catch(reject);
+        connectToTtyd(endpoint, cols, rows, attempt + 1).then(resolve).catch(reject);
       } else {
         reject(new Error('Failed to connect to ttyd'));
       }
@@ -233,7 +236,7 @@ function connectToTtyd(port, cols, rows, attempt = 1) {
 
     ttydWs.on('open', () => {
       clearTimeout(timeout);
-      ttydWs.send(JSON.stringify({ columns: cols || 80, rows: rows || 24 }));
+      ttydWs.send(ttydInitMessage(endpoint.credential, cols, rows));
       resolve(ttydWs);
     });
 
@@ -241,7 +244,7 @@ function connectToTtyd(port, cols, rows, attempt = 1) {
       clearTimeout(timeout);
       if (attempt < 5) {
         setTimeout(() => {
-          connectToTtyd(port, cols, rows, attempt + 1).then(resolve).catch(reject);
+          connectToTtyd(endpoint, cols, rows, attempt + 1).then(resolve).catch(reject);
         }, 200);
       } else {
         reject(err);
@@ -310,17 +313,17 @@ export const terminalManager = {
     const emitter = new EventEmitter();
 
     try {
-      const port = await startTtydSerialized(terminal.tmuxSession);
+      let endpoint = await startTtydSerialized(terminal.tmuxSession);
       let ttydWs;
 
       try {
-        ttydWs = await connectToTtyd(port, cols, rows);
+        ttydWs = await connectToTtyd(endpoint, cols, rows);
       } catch (err) {
         // If ttyd exists but connection failed, restart it and retry once
         if (ttydProcesses.has(terminal.tmuxSession)) {
           stopTtyd(terminal.tmuxSession);
-          const retryPort = await startTtydSerialized(terminal.tmuxSession);
-          ttydWs = await connectToTtyd(retryPort, cols, rows);
+          endpoint = await startTtydSerialized(terminal.tmuxSession);
+          ttydWs = await connectToTtyd(endpoint, cols, rows);
         } else {
           throw err;
         }
@@ -336,7 +339,7 @@ export const terminalManager = {
       }
 
       activeTerminals.set(terminalId, { ttydWs, emitter });
-      console.log(`[TerminalManager] ttyd WS connected for ${terminalId.slice(0,8)} on port ${port}, readyState=${ttydWs.readyState}`);
+      console.log(`[TerminalManager] ttyd WS connected for ${terminalId.slice(0,8)} on port ${endpoint.port}, readyState=${ttydWs.readyState}`);
 
       ttydWs.on('ping', () => {
         console.log(`[TerminalManager] ttyd ping for ${terminalId.slice(0,8)} at ${Date.now()} buffered=${ttydWs.bufferedAmount} readyState=${ttydWs.readyState}`);
