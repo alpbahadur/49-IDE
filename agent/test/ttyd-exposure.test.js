@@ -161,4 +161,15 @@ test('real ttyd with the agent arguments', { skip: !hasTtyd && 'ttyd not install
     const result = await tryToType(ttydUrl(PORT), ttydClientOptions(wrong), wrong);
     assert.equal(result.typed, false);
   });
+
+  await t.test('a web page in the user\'s browser cannot connect (cross-site WebSocket)', async () => {
+    const result = await tryToType(ttydUrl(PORT), { origin: 'https://attacker.example' });
+    assert.equal(result.typed, false);
+  });
+
+  await t.test('DNS rebinding (Origin matches Host) is rejected', async () => {
+    const host = `attacker.example:${PORT}`;
+    const result = await tryToType(ttydUrl(PORT), { origin: `http://${host}`, headers: { Host: host } });
+    assert.equal(result.typed, false);
+  });
 });
