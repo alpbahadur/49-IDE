@@ -172,4 +172,16 @@ test('real ttyd with the agent arguments', { skip: !hasTtyd && 'ttyd not install
     const result = await tryToType(ttydUrl(PORT), { origin: `http://${host}`, headers: { Host: host } });
     assert.equal(result.typed, false);
   });
+
+  await t.test('the credential is not accepted from the init message alone', async () => {
+    // Page scripts can put anything in the first WebSocket message, so the
+    // header must be what ttyd checks.
+    const token = Buffer.from(`${credential.user}:${credential.pass}`).toString('base64');
+    const result = await new Promise((resolve) => {
+      const ws = new WebSocket(ttydUrl(PORT), ['tty'], { handshakeTimeout: 1500 });
+      ws.on('open', () => { ws.send(JSON.stringify({ AuthToken: token, columns: 80, rows: 24 })); resolve('open'); ws.terminate(); });
+      ws.on('error', () => resolve('rejected'));
+    });
+    assert.equal(result, 'rejected');
+  });
 });
