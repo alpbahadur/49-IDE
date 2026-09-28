@@ -13,7 +13,8 @@ import {
 } from '../src/ttydLaunch.js';
 
 /**
- * ttyd serves a writable shell. These tests pin down who can reach it.
+ * ttyd serves a writable shell. These tests pin down who can reach it: only
+ * the agent itself, over loopback, holding the per-process credential.
  *
  * The integration tests launch a real ttyd with the agent's arguments, with
  * `cat` standing in for `tmux attach-session`, and try to type into it the way
@@ -49,7 +50,7 @@ function stopTtyd(proc) {
  * Connect, send a line of input and report whether it came back. Resolves
  * { typed: true } only if the terminal accepted and echoed the input.
  */
-function tryToType(url, wsOptions = {}) {
+function tryToType(url, wsOptions = {}, credential = null) {
   return new Promise((resolve) => {
     const marker = `probe-${Math.random().toString(36).slice(2)}`;
     const ws = new WebSocket(url, ['tty'], { handshakeTimeout: 1500, ...wsOptions });
@@ -64,7 +65,9 @@ function tryToType(url, wsOptions = {}) {
     };
     const timer = setTimeout(() => finish({ typed: false, reason: 'no echo' }), 2000);
     ws.on('open', () => {
-      ws.send(JSON.stringify({ columns: 80, rows: 24 }));
+      // The agent sends its credential in the init message; a client without
+      // one sends a plain resize, as ttyd's own web page does.
+      ws.send(credential ? ttydInitMessage(credential, 80, 24) : JSON.stringify({ columns: 80, rows: 24 }));
       ws.send(Buffer.from(`0${marker}\n`));
     });
     ws.on('message', (data) => {
@@ -89,16 +92,24 @@ function externalIPv4() {
 // --- Arguments ---------------------------------------------------------------
 
 test('ttyd binds to loopback only', () => {
-  const args = buildTtydArgs({ port: 7700, command: ['cat'] });
+  const args = buildTtydArgs({ port: 7700, credential: generateTtydCredential(), command: ['cat'] });
   const i = args.indexOf('-i');
   assert.notEqual(i, -1, 'ttyd must be given -i, or it listens on every interface');
   assert.equal(args[i + 1], '127.0.0.1');
   assert.equal(TTYD_BIND_HOST, '127.0.0.1');
 });
 
+test('ttyd requires the generated credential', () => {
+  const credential = generateTtydCredential();
+  const args = buildTtydArgs({ port: 7700, credential, command: ['cat'] });
+  const c = args.indexOf('-c');
+  assert.notEqual(c, -1, 'ttyd must be given -c');
+  assert.equal(args[c + 1], `${credential.user}:${credential.pass}`);
+});
+
 test('the wrapped command comes last, so ttyd does not parse its flags', () => {
   const command = ['tmux', 'attach-session', '-t', 'sess'];
-  const args = buildTtydArgs({ port: 7700, command });
+  const args = buildTtydArgs({ port: 7700, credential: generateTtydCredential(), command });
   assert.deepEqual(args.slice(-command.length), command);
 });
 
@@ -123,17 +134,19 @@ test('the agent connects over loopback and presents the credential', () => {
 // --- Real ttyd ---------------------------------------------------------------
 
 test('real ttyd with the agent arguments', { skip: !hasTtyd && 'ttyd not installed' }, async (t) => {
-  const proc = await startTtyd(buildTtydArgs({ port: PORT, command: ['cat'] }));
+  const credential = generateTtydCredential();
+  const proc = await startTtyd(buildTtydArgs({ port: PORT, credential, command: ['cat'] }));
   t.after(() => stopTtyd(proc));
 
   await t.test('the agent can type into the terminal', async () => {
-    const result = await tryToType(ttydUrl(PORT));
+    const result = await tryToType(ttydUrl(PORT), ttydClientOptions(credential), credential);
     assert.equal(result.typed, true, `agent client failed: ${result.reason}`);
   });
 
   const lanIp = externalIPv4();
   await t.test('another machine on the network cannot connect', { skip: !lanIp && 'no non-loopback IPv4 address' }, async () => {
-    const result = await tryToType(`ws://${lanIp}:${PORT}/ws`);
+    // Even holding the credential: the port must not be open on this address.
+    const result = await tryToType(`ws://${lanIp}:${PORT}/ws`, ttydClientOptions(credential), credential);
     assert.equal(result.typed, false);
     assert.equal(result.reason, 'ECONNREFUSED');
   });

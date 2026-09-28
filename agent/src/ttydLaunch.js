@@ -14,10 +14,11 @@ export function generateTtydCredential() {
   };
 }
 
-export function buildTtydArgs({ port, command }) {
+export function buildTtydArgs({ port, credential, command }) {
   return [
     '-i', TTYD_BIND_HOST,
     '-p', String(port),
+    '-c', `${credential.user}:${credential.pass}`,
     '-W',
     ...command,
   ];

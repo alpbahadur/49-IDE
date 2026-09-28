@@ -3,7 +3,7 @@ import { spawn, execSync } from 'child_process';
 import WebSocket from 'ws';
 import { tmuxService } from '../services/tmux.js';
 import { config } from './config.js';
-import { buildTtydArgs, generateTtydCredential, ttydUrl } from './ttydLaunch.js';
+import { buildTtydArgs, generateTtydCredential, ttydClientOptions, ttydInitMessage, ttydUrl } from './ttydLaunch.js';
 
 // tmux command prefix for this instance (see agent/src/instance.js).
 const TMUX = config.tmuxCommand;
@@ -155,6 +155,7 @@ async function startTtyd(tmuxSession) {
   return new Promise((resolve, reject) => {
     const ttyd = spawn('ttyd', buildTtydArgs({
       port,
+      credential,
       command: ['tmux', 'attach-session', '-t', tmuxSession],
     }), {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -221,7 +222,7 @@ function stopAllTtyd() {
  */
 function connectToTtyd(endpoint, cols, rows, attempt = 1) {
   return new Promise((resolve, reject) => {
-    const ttydWs = new WebSocket(ttydUrl(endpoint.port), ['tty']);
+    const ttydWs = new WebSocket(ttydUrl(endpoint.port), ['tty'], ttydClientOptions(endpoint.credential));
     ttydWs.binaryType = 'arraybuffer';
 
     const timeout = setTimeout(() => {
@@ -235,7 +236,7 @@ function connectToTtyd(endpoint, cols, rows, attempt = 1) {
 
     ttydWs.on('open', () => {
       clearTimeout(timeout);
-      ttydWs.send(JSON.stringify({ columns: cols || 80, rows: rows || 24 }));
+      ttydWs.send(ttydInitMessage(endpoint.credential, cols, rows));
       resolve(ttydWs);
     });
 
