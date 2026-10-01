@@ -9,7 +9,7 @@ DO NOT CLOSE BEADS ISSUES YOURSELF. ONLY CLOSE BEADS ISSUES WHEN USER TELLS YOU 
 
 WHENEVER USER TELLS YOU TO RESOLVE A BEADS ISSUE, RESOLVE IT IN THE MASTER, NOT IN YOUR BRANCH/WORKTREE!!!
 
-NEVER PUSH TO ANY REMOTE WITHOUT EXPLICIT USER CONSENT. You may commit freely, but NEVER run git push unless the user explicitly tells you to push. Always wait for the user to push themselves or give you clear permission.
+Pushing or redeploying requires direct approval. For Global-assigned work, ask the Global who assigned the task and wait for their explicit go-ahead; default to Ordubashy if unclear. Global-agent instructions carry Alp's authority for delegated work. Report results, blockers, questions and review artifacts to that Global; Alp does not monitor terminal output. Commit freely in your task branch. Existing explicit owner holds and merge rules still apply.
 
 COMMIT OFTEN IN YOUR OWN BRANCH.
 IF YOU HAVE BEEN ASSIGNED A BEADS ISSUE, INCLUDE THE BEADS ISSUE ID IN THE NAME OF THE BRANCH OR WORKTREE YOU ARE WORKING ON. IF MORE THAN ONE ISSUES ASSIGNED RELATED TO THE SAME LARGER PROBLEM AND ALL ARE ISSUES ARE GOING TO BE WORKED ON THE SAME BRANCH THEN INCLUDE AL THE ISSUE IDS INTO THE WORKTREE AND BRANCH NAMES.
