@@ -8,7 +8,7 @@
 
 import { jwtVerify, SignJWT } from 'jose';
 import { config } from '../config.js';
-import { upsertUser, getUserById } from '../db/users.js';
+import { upsertUser, getUserById, getOrCreateLocalSharedUser } from '../db/users.js';
 import { upsertDevAgent } from '../db/agents.js';
 import { getLocalAuth } from './localAuth.js';
 import { hostname as osHostname } from 'os';
@@ -79,10 +79,24 @@ export async function verifyAgentToken(token, instanceKey) {
       };
     }
 
-    // Local mode: use the cloud-authenticated identity
+    // Local mode: use the cloud-authenticated identity when there is one
     const localAuth = getLocalAuth();
     if (!localAuth) {
-      throw new Error('Local instance not authenticated with cloud. Open the app in your browser to sign in first.');
+      // Local mode no longer has a sign-in step, so local_auth is usually
+      // empty. Bind the agent to the same shared identity the browser
+      // middleware provisions (keyed on the persisted instance id); otherwise
+      // the browser and the agent never meet and the agent is refused.
+      const { ensureLocalSession, getEmailAuth } = await import('./emailAuth.js');
+      const { instanceId } = ensureLocalSession();
+      const emailAuth = getEmailAuth();
+      const user = getOrCreateLocalSharedUser(instanceId, {
+        email: emailAuth?.email || null,
+        displayName: emailAuth?.email ? emailAuth.email.split('@')[0] : 'Local User',
+      });
+      return {
+        agentId: resolveDevAgent(instanceKey, user.id),
+        userId: user.id,
+      };
     }
     const user = getUserById(localAuth.cloudUserId) || upsertUser({
       githubLogin: localAuth.githubLogin,
