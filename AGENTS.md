@@ -194,14 +194,14 @@ For more details, see README.md and docs/QUICKSTART.md.
 
 ## Landing the Plane (Session Completion)
 
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+**When ending a work session**, record completed work and any remaining approval dependency. Pushing or redeploying requires direct approval. For Global-assigned work, ask the assigning Global; default to Ordubashy if unclear.
 
 **MANDATORY WORKFLOW:**
 
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
+4. **PUSH TO REMOTE** - Only after explicit go-ahead for this work and target:
    ```bash
    git pull --rebase
    bd sync
@@ -209,11 +209,10 @@ For more details, see README.md and docs/QUICKSTART.md.
    git status  # MUST show "up to date with origin"
    ```
 5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
+6. **Verify** - Report committed, pushed and merged status separately
 7. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
+- Preserve the task branch and report to the assigning Global while approval is pending.
+- Continue independent assigned work while waiting; terminal output is not a handoff.
+- If an approved push fails, preserve the commits and report the failure; never force-push over others.
